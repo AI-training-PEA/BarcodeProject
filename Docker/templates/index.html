@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Equipment Detector</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 30px; background-color: #f4f4f9; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        h1 { color: #333; }
+        #imageInput { margin: 20px 0; }
+        #previewContainer { margin-top: 20px; display: none; }
+        #resultImage { max-width: 100%; border-radius: 10px; border: 3px solid #007bff; }
+        .loading { color: #666; font-style: italic; display: none; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 AI ตรวจจับอุปกรณ์</h1>
+        <p>อัปโหลดรูปภาพของคุณเพื่อให้ AI ตรวจสอบ</p>
+        
+        <form id="uploadForm">
+            <input type="file" id="imageInput" accept="image/*" required>
+            <br>
+            <button type="submit">🚀 ตรวจสอบรูปภาพ</button>
+        </form>
+
+        <p class="loading" id="loadingText">⏳ กำลังประมวลผล... (อาจใช้เวลาสักครู่)</p>
+
+        <div id="previewContainer">
+            <h3>ผลลัพธ์:</h3>
+            <img id="resultImage" src="" alt="Result">
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const imageInput = document.getElementById('imageInput');
+        const resultImage = document.getElementById('resultImage');
+        const previewContainer = document.getElementById('previewContainer');
+        const loadingText = document.getElementById('loadingText');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (imageInput.files.length === 0) return alert("กรุณาเลือกไฟล์ก่อนครับ");
+
+            // เตรียมข้อมูลส่งไปหลังบ้าน
+            const formData = new FormData();
+            formData.append('file', imageInput.files[0]);
+
+            // แสดงสถานะกำลังโหลด
+            loadingText.style.display = 'block';
+            previewContainer.style.display = 'none';
+
+            try {
+                // ส่งรูปไปที่ API หลังบ้าน (/predict)
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('เกิดข้อผิดพลาดในการประมวลผล');
+
+                // รับผลลัพธ์กลับมาเป็นรูปภาพ (Blob)
+                const imageBlob = await response.blob();
+                // สร้าง URL ชั่วคราวเพื่อแสดงรูป
+                const imageUrl = URL.createObjectURL(imageBlob);
+                resultImage.src = imageUrl;
+                previewContainer.style.display = 'block';
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                loadingText.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
