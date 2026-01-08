@@ -3,78 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Equipment Detector</title>
+    <title>Enterprise Barcode Inspector</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 30px; background-color: #f4f4f9; }
-        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
-        h1 { color: #333; }
-        #imageInput { margin: 20px 0; }
-        #previewContainer { margin-top: 20px; display: none; }
-        #resultImage { max-width: 100%; border-radius: 10px; border: 3px solid #007bff; }
-        .loading { color: #666; font-style: italic; display: none; }
-        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
-        button:hover { background-color: #0056b3; }
+        .preview-img { width: 100px; height: auto; border-radius: 5px; cursor: pointer; }
+        .preview-img:hover { transform: scale(1.5); transition: 0.2s; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>📸 AI ตรวจจับอุปกรณ์</h1>
-        <p>อัปโหลดรูปภาพของคุณเพื่อให้ AI ตรวจสอบ</p>
-        
-        <form id="uploadForm">
-            <input type="file" id="imageInput" accept="image/*" required>
-            <br>
-            <button type="submit">🚀 ตรวจสอบรูปภาพ</button>
-        </form>
+<body class="bg-light">
 
-        <p class="loading" id="loadingText">⏳ กำลังประมวลผล... (อาจใช้เวลาสักครู่)</p>
+    <div class="container py-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">🏢 ระบบตรวจจับบาร์โค้ด (Prototype)</h3>
+            </div>
+            <div class="card-body">
+                
+                <form id="uploadForm" class="mb-4">
+                    <label class="form-label">เลือกรูปภาพตรวจสอบ (ได้หลายไฟล์)</label>
+                    <div class="input-group">
+                        <input type="file" class="form-control" id="fileInput" name="files[]" multiple accept="image/*" required>
+                        <button class="btn btn-success" type="submit">🚀 เริ่มตรวจสอบ</button>
+                    </div>
+                </form>
 
-        <div id="previewContainer">
-            <h3>ผลลัพธ์:</h3>
-            <img id="resultImage" src="" alt="Result">
+                <div id="loading" class="d-none">
+                    <p class="text-center text-muted">กำลังประมวลผลด้วย AI...</p>
+                    <div class="progress mb-4">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div id="resultArea" class="d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5>ผลการตรวจสอบ</h5>
+                        <button class="btn btn-outline-dark btn-sm" onclick="alert('ฟีเจอร์ Export CSV จะมาในเฟสถัดไปครับ!')">📂 Export CSV</button>
+                    </div>
+                    
+                    <table class="table table-bordered table-hover bg-white">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ชื่อไฟล์</th>
+                                <th>รูปผลลัพธ์</th>
+                                <th>สิ่งที่ตรวจพบ</th>
+                                <th>สถานะ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            </tbody>
+                    </table>
+                </div>
+
+            </div>
         </div>
     </div>
 
     <script>
-        const form = document.getElementById('uploadForm');
-        const imageInput = document.getElementById('imageInput');
-        const resultImage = document.getElementById('resultImage');
-        const previewContainer = document.getElementById('previewContainer');
-        const loadingText = document.getElementById('loadingText');
-
-        form.addEventListener('submit', async (e) => {
+        document.getElementById('uploadForm').onsubmit = async (e) => {
             e.preventDefault();
-            if (imageInput.files.length === 0) return alert("กรุณาเลือกไฟล์ก่อนครับ");
+            const fileInput = document.getElementById('fileInput');
+            const tableBody = document.getElementById('tableBody');
+            const loading = document.getElementById('loading');
+            const resultArea = document.getElementById('resultArea');
 
-            // เตรียมข้อมูลส่งไปหลังบ้าน
+            if(fileInput.files.length === 0) return;
+
+            // เตรียม UI
+            loading.classList.remove('d-none');
+            resultArea.classList.add('d-none');
+            tableBody.innerHTML = '';
+
             const formData = new FormData();
-            formData.append('file', imageInput.files[0]);
-
-            // แสดงสถานะกำลังโหลด
-            loadingText.style.display = 'block';
-            previewContainer.style.display = 'none';
+            for (const file of fileInput.files) {
+                formData.append('files[]', file);
+            }
 
             try {
-                // ส่งรูปไปที่ API หลังบ้าน (/predict)
-                const response = await fetch('/predict', {
-                    method: 'POST',
-                    body: formData
+                // ส่งไปหา Backend
+                const res = await fetch('/predict_batch', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                // วนลูปสร้างแถวในตาราง
+                data.results.forEach(item => {
+                    const row = `
+                        <tr>
+                            <td>${item.filename}</td>
+                            <td><img src="data:image/jpeg;base64,${item.image_data}" class="preview-img"></td>
+                            <td>${item.count} จุด</td>
+                            <td><span class="badge ${item.count > 0 ? 'text-bg-success' : 'text-bg-danger'}">${item.status}</span></td>
+                        </tr>
+                    `;
+                    tableBody.innerHTML += row;
                 });
 
-                if (!response.ok) throw new Error('เกิดข้อผิดพลาดในการประมวลผล');
+                resultArea.classList.remove('d-none');
 
-                // รับผลลัพธ์กลับมาเป็นรูปภาพ (Blob)
-                const imageBlob = await response.blob();
-                // สร้าง URL ชั่วคราวเพื่อแสดงรูป
-                const imageUrl = URL.createObjectURL(imageBlob);
-                resultImage.src = imageUrl;
-                previewContainer.style.display = 'block';
-            } catch (error) {
-                alert(error.message);
+            } catch (err) {
+                alert("เกิดข้อผิดพลาด: " + err.message);
             } finally {
-                loadingText.style.display = 'none';
+                loading.classList.add('d-none');
             }
-        });
+        };
     </script>
 </body>
 </html>
